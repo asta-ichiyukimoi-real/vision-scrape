@@ -24,6 +24,14 @@ def clean_snippet(text: str) -> str:
     return text
 
 
+@router.get("/")
+async def home_p():
+    return {
+        "search": "search for anything e.g wikipedia/search?q=asta",
+        "page": "check the pages e.g wikipedia/page?title=asta"
+    }
+
+
 @router.get("/search")
 async def search_wikipedia(q: str = Query(None), limit: int = Query(5)):
     """Clean & Beautiful Search"""

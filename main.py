@@ -1,14 +1,13 @@
 # main.py
 from fastapi import FastAPI
-from routers import wikipedia, youtube, groq     # ← Add groq
+from routers import wikipedia, youtube, groq
 
 app = FastAPI(
-    title="MyWeb - All My APIs",
-    description="Unified API Hub",
+    title="Asta APIs",
+    description="scraping test",
     version="1.0.0"
 )
 
-# Include all routers
 app.include_router(wikipedia.router)
 app.include_router(youtube.router)
 app.include_router(groq.router)
@@ -30,3 +29,6 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+#uvicorn main:app --reload to host
+
