@@ -1,4 +1,3 @@
-# main.py
 from fastapi import APIRouter, FastAPI, Query
 import requests
 from bs4 import BeautifulSoup
@@ -10,7 +9,6 @@ router = APIRouter(
 )
 
 HEADERS = {
-    # ← Use your real User-Agent
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 }
 
@@ -19,10 +17,8 @@ def clean_snippet(text: str) -> str:
     """Clean HTML tags and extra spaces from snippets"""
     if not text:
         return ""
-    # Remove HTML tags
     soup = BeautifulSoup(text, "html.parser")
     text = soup.get_text()
-    # Remove extra spaces and citations
     text = re.sub(r'\[\d+\]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text

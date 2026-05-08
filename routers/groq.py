@@ -1,4 +1,3 @@
-# routers/groq.py
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, HttpUrl
 from groq import Groq
@@ -17,7 +16,6 @@ if not GROQ_API_KEY:
 client = Groq(api_key=GROQ_API_KEY)
 
 
-# ====================== POST Version (Recommended) ======================
 class VisionRequest(BaseModel):
     image_url: HttpUrl
     prompt: str = "Describe this image in detail and extract all text."
@@ -51,7 +49,6 @@ async def describe_image(request: VisionRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ====================== GET Version (For quick testing) ======================
 @router.get("/vision")
 async def describe_image_get(
     image_url: HttpUrl = Query(..., description="Public image URL"),
