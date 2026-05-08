@@ -16,7 +16,7 @@ app.include_router(groq.router)
 @app.get("/")
 async def root():
     return {
-        "message": "Welcome to MyWeb API Hub",
+        "message": "Asta APIs Hub for testing my scraping skill",
         "available_apis": {
             "wikipedia": "/wikipedia",
             "youtube": "/youtube",
@@ -30,5 +30,4 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
 
-#uvicorn main:app --reload to host
-
+# uvicorn main:app --reload to host
