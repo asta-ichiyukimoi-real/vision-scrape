@@ -1,6 +1,8 @@
-# main.py
+import asyncio
+import sys
 from fastapi import FastAPI
-from routers import wikipedia, youtube, groq
+
+from routers import webnovel, wikipedia, youtube, groq
 
 app = FastAPI(
     title="Asta APIs",
@@ -8,6 +10,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+app.include_router(webnovel.router)
 app.include_router(wikipedia.router)
 app.include_router(youtube.router)
 app.include_router(groq.router)
@@ -20,7 +23,8 @@ async def root():
         "available_apis": {
             "wikipedia": "/wikipedia",
             "youtube": "/youtube",
-            "groq_vision": "/groq"
+            "groq_vision": "/groq",
+            "webnovel": "/webnovel"
         },
         "documentation": "/docs"
     }
