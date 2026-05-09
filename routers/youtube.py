@@ -101,21 +101,17 @@ async def get_transcript(video_id: str):
 @router.get("/download")
 async def get_download_link(
     url: str = Query(..., description="YouTube video URL"),
-    quality: str = Query(
-        "best", description="best, 1080p, 720p, 480p, audio, mp3")
+    quality: str = Query("audio", description="Options: audio, mp3, best")
 ):
-    # Use current working directory (most reliable on Render)
     cookies_path = os.path.join(os.getcwd(), "cookies.txt")
 
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'noplaylist': True,
-        'format': "bestvideo+bestaudio/best",
-        'merge_output_format': 'mp4',
-        'cookies': cookies_path,           # ← Full absolute path
+        'cookies': cookies_path,
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15'
         }
     }
 
@@ -128,6 +124,11 @@ async def get_download_link(
                 'preferredquality': '192',
             }]
         })
+    elif quality == "best":
+        ydl_opts['format'] = "bestvideo+bestaudio/best"
+        ydl_opts['merge_output_format'] = 'mp4'
+    else:  # default = audio
+        ydl_opts['format'] = 'bestaudio/best'
 
     try:
         info = await extract_info(url, ydl_opts)
@@ -142,8 +143,8 @@ async def get_download_link(
             "success": True,
             "title": info.get("title") if info else None,
             "direct_download_url": direct_url,
-            "cookies_used": True,
-            "cookies_path": cookies_path
+            "requested_quality": quality,
+            "message": "Audio streams are more stable on server environments."
         }
 
     except Exception as e:
