@@ -95,12 +95,10 @@ async def get_transcript(video_id: str):
         "auto_captions": info.get("automatic_captions")
     }
 
-
 @router.get("/download")
 async def get_download_link(
     url: str = Query(..., description="YouTube video URL"),
-    quality: str = Query(
-        "best", description="best, 1080p, 720p, 480p, audio, mp3")
+    quality: str = Query("best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
     format_map = {
         "best": "bestvideo+bestaudio/best",
@@ -116,35 +114,33 @@ async def get_download_link(
         'noplaylist': True,
         'format': format_map.get(quality, "bestvideo+bestaudio/best"),
         'merge_output_format': 'mp4',
+        'cookies': 'cookies.txt',                    # ← This is the key line
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
         'extractor_args': {
             'youtube': {
-                # Multiple clients
-                'player_client': ['web_safari', 'ios', 'android', 'web'],
-                'player_skip': ['web'],   # Skip problematic ones
+                'player_client': ['ios', 'web_safari', 'android', 'web']
             }
-        },
-        'geo_bypass': True,
+        }
     }
 
     if quality == "mp3":
-        ydl_opts['format'] = 'bestaudio/best'
-        ydl_opts['postprocessors'] = [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }]
+        ydl_opts.update({
+            'format': 'bestaudio/best',
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '192',
+            }]
+        })
 
     try:
         info = await extract_info(url, ydl_opts)
 
         if not info:
-            raise HTTPException(
-                status_code=400, detail="Could not fetch video info. YouTube blocked the request.")
+            raise HTTPException(status_code=400, detail="Failed to extract video info")
 
-        # Extract URL safely
         direct_url = None
         if info.get('requested_formats'):
             direct_url = info['requested_formats'][-1].get('url')
@@ -156,9 +152,8 @@ async def get_download_link(
             "title": info.get("title"),
             "direct_download_url": direct_url,
             "requested_quality": quality,
-            "message": "Link may expire soon. This works better on some videos than others due to YouTube restrictions."
+            "message": "Using cookies method. Link expires soon."
         }
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Download error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Download error: {str(e)}")
