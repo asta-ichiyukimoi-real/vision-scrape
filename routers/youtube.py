@@ -102,8 +102,6 @@ async def get_download_link(
     quality: str = Query(
         "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
-    """Get direct download links"""
-
     format_map = {
         "best": "bestvideo+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best",
@@ -120,7 +118,6 @@ async def get_download_link(
         'no_warnings': True,
     }
 
-    # Special handling for mp3
     if quality == "mp3":
         ydl_opts.update({
             'format': 'bestaudio/best',
@@ -131,34 +128,24 @@ async def get_download_link(
             }],
         })
 
-    info = await extract_info(url, ydl_opts)
+    try:
+        info = await extract_info(url, ydl_opts)
 
-    # === Extract direct URL (This is the important part) ===
-    direct_url = None
-    filesize = None
-    ext = None
+        # Extract direct URL
+        direct_url = None
+        if info.get('requested_formats'):
+            direct_url = info['requested_formats'][-1].get('url')
+        elif info.get('url'):
+            direct_url = info.get('url')
 
-    if info.get('requested_formats'):           # For video + audio merged
-        # Take the last one (usually the merged one)
-        direct_url = info['requested_formats'][-1].get('url')
-        filesize = info['requested_formats'][-1].get(
-            'filesize') or info['requested_formats'][-1].get('filesize_approx')
-        ext = info['requested_formats'][-1].get('ext')
+        return {
+            "title": info.get("title"),
+            "id": info.get("id"),
+            "direct_download_url": direct_url,
+            "requested_quality": quality,
+            "message": "Direct link may expire soon."
+        }
 
-    elif info.get('url'):                       # For audio-only or simple cases
-        direct_url = info.get('url')
-        filesize = info.get('filesize') or info.get('filesize_approx')
-        ext = info.get('ext')
-
-    return {
-        "title": info.get("title"),
-        "id": info.get("id"),
-        "channel": info.get("channel"),
-        "duration": info.get("duration"),
-        "thumbnail": info.get("thumbnail"),
-        "requested_quality": quality,
-        "direct_download_url": direct_url,
-        "filesize": filesize,
-        "ext": "mp3" if quality == "mp3" else ext,
-        "message": "Note: Direct links usually expire within a few hours. For long-term use, download with yt-dlp."
-    }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Download error: {str(e)}")
