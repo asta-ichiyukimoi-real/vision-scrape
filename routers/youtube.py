@@ -106,7 +106,6 @@ async def get_download_link(
         "best": "bestvideo+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best",
         "720p": "bestvideo[height<=720]+bestaudio/best",
-        "480p": "bestvideo[height<=480]+bestaudio/best",
         "audio": "bestaudio/best",
         "mp3": "bestaudio/best",
     }
@@ -118,35 +117,47 @@ async def get_download_link(
         'format': format_map.get(quality, "bestvideo+bestaudio/best"),
         'merge_output_format': 'mp4',
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
         },
-        # This is the most important part for bypassing bot detection
         'extractor_args': {
             'youtube': {
-                # Try different clients
-                'player_client': ['web_safari', 'android', 'web']
+                # Multiple clients
+                'player_client': ['web_safari', 'ios', 'android', 'web'],
+                'player_skip': ['web'],   # Skip problematic ones
             }
-        }
+        },
+        'geo_bypass': True,
     }
 
     if quality == "mp3":
-        ydl_opts.update({
-            'format': 'bestaudio/best',
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }],
-        })
+        ydl_opts['format'] = 'bestaudio/best'
+        ydl_opts['postprocessors'] = [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }]
 
     try:
         info = await extract_info(url, ydl_opts)
 
         if not info:
             raise HTTPException(
-                status_code=400, detail="Could not extract video info.")
+                status_code=400, detail="Could not fetch video info. YouTube blocked the request.")
 
-        # ... rest of your return logic (same as before)
+        # Extract URL safely
+        direct_url = None
+        if info.get('requested_formats'):
+            direct_url = info['requested_formats'][-1].get('url')
+        else:
+            direct_url = info.get('url')
+
+        return {
+            "success": True,
+            "title": info.get("title"),
+            "direct_download_url": direct_url,
+            "requested_quality": quality,
+            "message": "Link may expire soon. This works better on some videos than others due to YouTube restrictions."
+        }
 
     except Exception as e:
         raise HTTPException(
