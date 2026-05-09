@@ -5,6 +5,7 @@ import requests
 from bs4 import BeautifulSoup
 from groq import Groq
 import os
+import re
 from dotenv import load_dotenv
 
 load_dotenv()
