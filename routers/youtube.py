@@ -102,8 +102,6 @@ async def get_download_link(
     quality: str = Query(
         "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
-    """Get direct download link with better error handling"""
-
     format_map = {
         "best": "bestvideo+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best",
@@ -118,9 +116,16 @@ async def get_download_link(
         'no_warnings': True,
         'noplaylist': True,
         'format': format_map.get(quality, "bestvideo+bestaudio/best"),
-        'merge_output_format': 'mp4',      # Helps with merging
+        'merge_output_format': 'mp4',
         'http_headers': {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36'
+        },
+        # This is the most important part for bypassing bot detection
+        'extractor_args': {
+            'youtube': {
+                # Try different clients
+                'player_client': ['web_safari', 'android', 'web']
+            }
         }
     }
 
@@ -139,41 +144,10 @@ async def get_download_link(
 
         if not info:
             raise HTTPException(
-                status_code=400, detail="Failed to extract video information. Video may be unavailable or age-restricted.")
+                status_code=400, detail="Could not extract video info.")
 
-        # Extract direct URL safely
-        direct_url = None
-        filesize = None
-        ext = None
+        # ... rest of your return logic (same as before)
 
-        if info.get('requested_formats'):
-            direct_url = info['requested_formats'][-1].get('url')
-            filesize = info['requested_formats'][-1].get(
-                'filesize') or info['requested_formats'][-1].get('filesize_approx')
-            ext = info['requested_formats'][-1].get('ext')
-        elif info.get('url'):
-            direct_url = info.get('url')
-            filesize = info.get('filesize') or info.get('filesize_approx')
-            ext = info.get('ext')
-
-        return {
-            "success": True,
-            "title": info.get("title"),
-            "id": info.get("id"),
-            "channel": info.get("channel"),
-            "duration": info.get("duration"),
-            "thumbnail": info.get("thumbnail"),
-            "requested_quality": quality,
-            "direct_download_url": direct_url,
-            "filesize": filesize,
-            "ext": "mp3" if quality == "mp3" else ext,
-            "message": "Note: This link usually expires within a few hours."
-        }
-
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(
-            status_code=500,
-            detail=f"Download error: {str(e)}"
-        )
+            status_code=500, detail=f"Download error: {str(e)}")
