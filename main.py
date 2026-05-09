@@ -2,7 +2,7 @@ import asyncio
 import sys
 from fastapi import FastAPI
 
-from routers import wikipedia, youtube, groq, search, summarizer, weather
+from routers import wikipedia, youtube, groq, search, summarizer, weather, ai
 
 app = FastAPI(
     title="Asta APIs",
@@ -16,6 +16,7 @@ app.include_router(groq.router)
 app.include_router(search.router)
 app.include_router(summarizer.router)
 app.include_router(weather.router)
+app.include_router(ai.router)
 
 
 @app.get("/")
@@ -23,6 +24,7 @@ async def root():
     return {
         "message": "Asta APIs Hub for testing my scraping skill",
         "available_apis": {
+            "ai_chat": "/ai/chat",
             "search": "/search?q=your query",
             "summarize": "/summarize (POST)",
             "weather": "/weather?city=Lagos",
