@@ -103,17 +103,24 @@ async def get_download_link(
         "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
     """Get direct download links"""
+
     format_map = {
         "best": "bestvideo+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best",
         "720p": "bestvideo[height<=720]+bestaudio/best",
         "480p": "bestvideo[height<=480]+bestaudio/best",
         "audio": "bestaudio/best",
-        "mp3": "bestaudio/best"
+        "mp3": "bestaudio/best",
     }
 
-    ydl_opts = {'quiet': True, 'noplaylist': True}
+    ydl_opts = {
+        'quiet': True,
+        'noplaylist': True,
+        'format': format_map.get(quality, "bestvideo+bestaudio/best"),
+        'no_warnings': True,
+    }
 
+    # Special handling for mp3
     if quality == "mp3":
         ydl_opts.update({
             'format': 'bestaudio/best',
@@ -123,11 +130,25 @@ async def get_download_link(
                 'preferredquality': '192',
             }],
         })
-    else:
-        ydl_opts['format'] = format_map.get(
-            quality, "bestvideo+bestaudio/best")
 
     info = await extract_info(url, ydl_opts)
+
+    # === Extract direct URL (This is the important part) ===
+    direct_url = None
+    filesize = None
+    ext = None
+
+    if info.get('requested_formats'):           # For video + audio merged
+        # Take the last one (usually the merged one)
+        direct_url = info['requested_formats'][-1].get('url')
+        filesize = info['requested_formats'][-1].get(
+            'filesize') or info['requested_formats'][-1].get('filesize_approx')
+        ext = info['requested_formats'][-1].get('ext')
+
+    elif info.get('url'):                       # For audio-only or simple cases
+        direct_url = info.get('url')
+        filesize = info.get('filesize') or info.get('filesize_approx')
+        ext = info.get('ext')
 
     return {
         "title": info.get("title"),
@@ -136,8 +157,8 @@ async def get_download_link(
         "duration": info.get("duration"),
         "thumbnail": info.get("thumbnail"),
         "requested_quality": quality,
-        "direct_download_url": info.get("url"),
-        "filesize": info.get("filesize") or info.get("filesize_approx"),
-        "ext": "mp3" if quality == "mp3" else info.get("ext"),
-        "message": "Note: Direct links can expire. Use yt-dlp locally for best results."
+        "direct_download_url": direct_url,
+        "filesize": filesize,
+        "ext": "mp3" if quality == "mp3" else ext,
+        "message": "Note: Direct links usually expire within a few hours. For long-term use, download with yt-dlp."
     }
