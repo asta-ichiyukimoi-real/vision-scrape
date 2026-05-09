@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
 import os
+import re
 from typing import List, Dict
 from collections import defaultdict
 
@@ -25,7 +26,12 @@ client = Cerebras(api_key=CEREBRAS_API_KEY)
 smart_history: Dict[str, List[dict]] = defaultdict(list)
 
 ASTA_SYSTEM_PROMPT = """
-You are Asta,created by Asta ichiyukimori a friendly, WhatsApp bot
+You are Asta, created by Asta Ichiyukimori, a friendly WhatsApp bot.
+Reply like a normal chat friend: short, natural, helpful, and casual.
+For greetings, small talk, thanks, jokes, or simple chat, do not explain or over-answer.
+When fresh web context is provided, use it only if it actually helps answer the user.
+Do not explain obvious words or give dictionary-style definitions unless asked.
+Do not say you searched or list sources in the chat reply unless asked.
 """
 
 
@@ -33,6 +39,37 @@ class SmartRequest(BaseModel):
     query: str
     session_id: str = "default"
     max_sources: int = 5
+
+
+def should_search_web(query: str) -> bool:
+    """Use web search only when the user likely needs fresh/factual info."""
+    normalized = query.strip().lower()
+
+    if len(normalized) <= 3:
+        return False
+
+    casual_patterns = [
+        r"^(hi|hey|hello|yo|sup|wyd|gm|gn|good morning|good afternoon|good evening)[!. ]*$",
+        r"^(thanks|thank you|ty|ok|okay|cool|nice|lol|haha|bye)[!. ]*$",
+        r"^(how are you|what'?s up|whats up|who are you)[?.! ]*$",
+    ]
+    if any(re.match(pattern, normalized) for pattern in casual_patterns):
+        return False
+
+    current_keywords = [
+        "latest", "today", "now", "current", "recent", "news", "update",
+        "price", "weather", "score", "schedule", "release", "version",
+        "who won", "when is", "where is", "search", "look up", "find"
+    ]
+    if any(keyword in normalized for keyword in current_keywords):
+        return True
+
+    question_starters = (
+        "what is", "what are", "who is", "who are", "when did", "when was",
+        "where is", "where are", "why is", "why are", "how to", "how do",
+        "how does", "tell me about", "explain"
+    )
+    return normalized.startswith(question_starters)
 
 
 @router.post("/")
@@ -45,48 +82,56 @@ async def smart_assistant(request: SmartRequest):
         if not history:
             history.append({"role": "system", "content": ASTA_SYSTEM_PROMPT})
 
-        # Step 1: Web Search
-        search_resp = requests.post(
-            "https://html.duckduckgo.com/html/",
-            data={"q": request.query},
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=10
-        )
-
-        soup = BeautifulSoup(search_resp.text, "html.parser")
         results = []
-
-        for result in soup.select(".result")[:request.max_sources]:
-            title = result.select_one(".result__title")
-            link = result.select_one(".result__url")
-            snippet = result.select_one(".result__snippet")
-
-            if title and link:
-                results.append({
-                    "title": title.get_text(strip=True),
-                    "url": link.get("href"),
-                    "snippet": snippet.get_text(strip=True) if snippet else ""
-                })
-
-        # Step 2: Read content from top pages
         context = ""
-        for result in results[:3]:
-            try:
-                page = requests.get(result["url"], headers={
-                                    "User-Agent": "Mozilla/5.0"}, timeout=10)
-                page_soup = BeautifulSoup(page.text, "html.parser")
 
-                for tag in page_soup(["script", "style", "nav", "header", "footer"]):
-                    tag.decompose()
+        if should_search_web(request.query):
+            # Step 1: Web Search
+            search_resp = requests.post(
+                "https://html.duckduckgo.com/html/",
+                data={"q": request.query},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=10
+            )
 
-                text = page_soup.get_text()
-                text = " ".join(text.split())[:2800]
-                context += f"\n\nSource: {result['title']}\n{text}\n"
-            except:
-                continue
+            soup = BeautifulSoup(search_resp.text, "html.parser")
+
+            for result in soup.select(".result")[:request.max_sources]:
+                title = result.select_one(".result__title")
+                link = result.select_one(".result__url")
+                snippet = result.select_one(".result__snippet")
+
+                if title and link:
+                    results.append({
+                        "title": title.get_text(strip=True),
+                        "url": link.get("href"),
+                        "snippet": snippet.get_text(strip=True) if snippet else ""
+                    })
+
+            # Step 2: Read content from top pages
+            for result in results[:3]:
+                try:
+                    page = requests.get(result["url"], headers={
+                                        "User-Agent": "Mozilla/5.0"}, timeout=10)
+                    page_soup = BeautifulSoup(page.text, "html.parser")
+
+                    for tag in page_soup(["script", "style", "nav", "header", "footer"]):
+                        tag.decompose()
+
+                    text = page_soup.get_text()
+                    text = " ".join(text.split())[:2800]
+                    context += f"\n\nSource: {result['title']}\n{text}\n"
+                except:
+                    continue
 
         # Step 3: Final Answer with Cerebras + Memory
-        user_message = f"Query: {request.query}\n\nContext from web:\n{context}"
+        if context:
+            user_message = (
+                f"User message: {request.query}\n\n"
+                f"Fresh web context, only use if relevant:\n{context}"
+            )
+        else:
+            user_message = request.query
 
         history.append({"role": "user", "content": user_message})
 
