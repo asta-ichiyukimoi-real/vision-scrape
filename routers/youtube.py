@@ -115,6 +115,7 @@ async def get_download_link(
         'quiet': True,
         'noplaylist': True,
         'format': format_map.get(quality, "bestvideo+bestaudio/best"),
+        'merge_output_format': 'mp4',
         'no_warnings': True,
     }
 
