@@ -13,7 +13,7 @@ async def extract_info(url: str, opts: dict = None):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'ignoreerrors': True,
+        'ignoreerrors': False,      # Changed to False for better error
         **(opts or {})
     }
     loop = asyncio.get_event_loop()
@@ -24,7 +24,7 @@ async def extract_info(url: str, opts: dict = None):
     except Exception as e:
         raise HTTPException(
             status_code=400,
-            detail=f"Error extracting info: {str(e)}"
+            detail=f"yt-dlp Error: {str(e)}"
         )
 
 
@@ -102,6 +102,8 @@ async def get_download_link(
     quality: str = Query(
         "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
+    """Get direct download link with better error handling"""
+
     format_map = {
         "best": "bestvideo+bestaudio/best",
         "1080p": "bestvideo[height<=1080]+bestaudio/best",
@@ -113,10 +115,13 @@ async def get_download_link(
 
     ydl_opts = {
         'quiet': True,
+        'no_warnings': True,
         'noplaylist': True,
         'format': format_map.get(quality, "bestvideo+bestaudio/best"),
-        'merge_output_format': 'mp4',
-        'no_warnings': True,
+        'merge_output_format': 'mp4',      # Helps with merging
+        'http_headers': {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
     }
 
     if quality == "mp3":
@@ -132,21 +137,43 @@ async def get_download_link(
     try:
         info = await extract_info(url, ydl_opts)
 
-        # Extract direct URL
+        if not info:
+            raise HTTPException(
+                status_code=400, detail="Failed to extract video information. Video may be unavailable or age-restricted.")
+
+        # Extract direct URL safely
         direct_url = None
+        filesize = None
+        ext = None
+
         if info.get('requested_formats'):
             direct_url = info['requested_formats'][-1].get('url')
+            filesize = info['requested_formats'][-1].get(
+                'filesize') or info['requested_formats'][-1].get('filesize_approx')
+            ext = info['requested_formats'][-1].get('ext')
         elif info.get('url'):
             direct_url = info.get('url')
+            filesize = info.get('filesize') or info.get('filesize_approx')
+            ext = info.get('ext')
 
         return {
+            "success": True,
             "title": info.get("title"),
             "id": info.get("id"),
-            "direct_download_url": direct_url,
+            "channel": info.get("channel"),
+            "duration": info.get("duration"),
+            "thumbnail": info.get("thumbnail"),
             "requested_quality": quality,
-            "message": "Direct link may expire soon."
+            "direct_download_url": direct_url,
+            "filesize": filesize,
+            "ext": "mp3" if quality == "mp3" else ext,
+            "message": "Note: This link usually expires within a few hours."
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
-            status_code=500, detail=f"Download error: {str(e)}")
+            status_code=500,
+            detail=f"Download error: {str(e)}"
+        )
