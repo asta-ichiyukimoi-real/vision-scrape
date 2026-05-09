@@ -15,7 +15,7 @@ async def extract_info(url: str, opts: dict = None):
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
-        'ignoreerrors': False,      # Changed to False for better error
+        'ignoreerrors': False,
         **(opts or {})
     }
     loop = asyncio.get_event_loop()
@@ -104,8 +104,8 @@ async def get_download_link(
     quality: str = Query(
         "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
-    cookies_path = str(Path(__file__).parent.parent /
-                       "cookies.txt")   # More reliable path
+    # Use current working directory (most reliable on Render)
+    cookies_path = os.path.join(os.getcwd(), "cookies.txt")
 
     ydl_opts = {
         'quiet': True,
@@ -113,7 +113,7 @@ async def get_download_link(
         'noplaylist': True,
         'format': "bestvideo+bestaudio/best",
         'merge_output_format': 'mp4',
-        'cookies': cookies_path,                    # Using full path
+        'cookies': cookies_path,           # ← Full absolute path
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
@@ -142,21 +142,10 @@ async def get_download_link(
             "success": True,
             "title": info.get("title") if info else None,
             "direct_download_url": direct_url,
-            "message": "Using cookies from file"
+            "cookies_used": True,
+            "cookies_path": cookies_path
         }
 
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Download error: {str(e)}")
-
-
-@router.get("/cookies-status")
-async def cookies_status():
-    import os
-    file_path = "cookies.txt"
-    return {
-        "file_exists": os.path.exists(file_path),
-        "file_size": os.path.getsize(file_path) if os.path.exists(file_path) else 0,
-        "current_directory": os.getcwd(),
-        "files_in_dir": os.listdir()
-    }
