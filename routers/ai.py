@@ -68,7 +68,7 @@ async def ai_chat(request: AIRequest):
             "success": True,
             "session_id": request.session_id,
             "response": ai_reply,
-            "character": "Asta Ichiyukimori"
+            "character": "Asta"
         }
 
     except Exception as e:
