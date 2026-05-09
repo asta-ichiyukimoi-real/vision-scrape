@@ -1,7 +1,7 @@
 # routers/smart.py
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
-from groq import Groq
+from cerebras.cloud.sdk import Cerebras
 from dotenv import load_dotenv
 import requests
 from bs4 import BeautifulSoup
@@ -13,13 +13,19 @@ load_dotenv()
 
 router = APIRouter(prefix="/smart", tags=["Smart Assistant"])
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.1-8b")
+
+if not CEREBRAS_API_KEY:
+    raise Exception("CEREBRAS_API_KEY is not set!")
+
+client = Cerebras(api_key=CEREBRAS_API_KEY)
 
 # Store chat history
 smart_history: Dict[str, List[dict]] = defaultdict(list)
 
 ASTA_SYSTEM_PROMPT = """
-You are Asta Ichiyukimori, a fun, friendly, and slightly playful WhatsApp bot.
+You are Asta,created by Asta ichiyukimori a friendly, WhatsApp bot.
 You speak casually with emojis, short sentences, and friendly slang.
 You are helpful, witty, and sometimes teasing.
 When giving answers, be natural like a real friend chatting on WhatsApp.
@@ -83,13 +89,13 @@ async def smart_assistant(request: SmartRequest):
             except:
                 continue
 
-        # Step 3: Final Answer with Groq + Memory
+        # Step 3: Final Answer with Cerebras + Memory
         user_message = f"Query: {request.query}\n\nContext from web:\n{context}"
 
         history.append({"role": "user", "content": user_message})
 
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=CEREBRAS_MODEL,
             messages=history,
             temperature=0.8,
             max_tokens=1200
