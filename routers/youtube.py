@@ -1,3 +1,5 @@
+from pathlib import Path
+import os
 from fastapi import APIRouter, Query, HTTPException
 import yt_dlp
 import asyncio
@@ -95,33 +97,25 @@ async def get_transcript(video_id: str):
         "auto_captions": info.get("automatic_captions")
     }
 
+
 @router.get("/download")
 async def get_download_link(
     url: str = Query(..., description="YouTube video URL"),
-    quality: str = Query("best", description="best, 1080p, 720p, 480p, audio, mp3")
+    quality: str = Query(
+        "best", description="best, 1080p, 720p, 480p, audio, mp3")
 ):
-    format_map = {
-        "best": "bestvideo+bestaudio/best",
-        "1080p": "bestvideo[height<=1080]+bestaudio/best",
-        "720p": "bestvideo[height<=720]+bestaudio/best",
-        "audio": "bestaudio/best",
-        "mp3": "bestaudio/best",
-    }
+    cookies_path = str(Path(__file__).parent.parent /
+                       "cookies.txt")   # More reliable path
 
     ydl_opts = {
         'quiet': True,
         'no_warnings': True,
         'noplaylist': True,
-        'format': format_map.get(quality, "bestvideo+bestaudio/best"),
+        'format': "bestvideo+bestaudio/best",
         'merge_output_format': 'mp4',
-        'cookies': 'cookies.txt',                    # ← This is the key line
+        'cookies': cookies_path,                    # Using full path
         'http_headers': {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['ios', 'web_safari', 'android', 'web']
-            }
         }
     }
 
@@ -138,22 +132,31 @@ async def get_download_link(
     try:
         info = await extract_info(url, ydl_opts)
 
-        if not info:
-            raise HTTPException(status_code=400, detail="Failed to extract video info")
-
         direct_url = None
-        if info.get('requested_formats'):
+        if info and info.get('requested_formats'):
             direct_url = info['requested_formats'][-1].get('url')
-        else:
+        elif info:
             direct_url = info.get('url')
 
         return {
             "success": True,
-            "title": info.get("title"),
+            "title": info.get("title") if info else None,
             "direct_download_url": direct_url,
-            "requested_quality": quality,
-            "message": "Using cookies method. Link expires soon."
+            "message": "Using cookies from file"
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Download error: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Download error: {str(e)}")
+
+
+@router.get("/cookies-status")
+async def cookies_status():
+    import os
+    file_path = "cookies.txt"
+    return {
+        "file_exists": os.path.exists(file_path),
+        "file_size": os.path.getsize(file_path) if os.path.exists(file_path) else 0,
+        "current_directory": os.getcwd(),
+        "files_in_dir": os.listdir()
+    }
