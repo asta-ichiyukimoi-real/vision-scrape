@@ -2,7 +2,7 @@ import asyncio
 import sys
 from fastapi import FastAPI
 
-from routers import wikipedia, youtube, groq, search, summarizer, weather, ai, smart, imdb
+from routers import pinterest, wikipedia, youtube, groq, search, summarizer, weather, ai, smart, imdb
 
 app = FastAPI(
     title="Asta APIs",
@@ -19,6 +19,7 @@ app.include_router(weather.router)
 app.include_router(ai.router)
 app.include_router(imdb.router)
 app.include_router(smart.router)
+app.include_router(pinterest.router)
 
 
 @app.get("/")
@@ -34,7 +35,8 @@ async def root():
             "youtube": "/youtube",
             "groq_vision": "/groq",
             "smart": "/smart",
-            "imdb": "/imdb"
+            "imdb": "/imdb",
+            "pinterest": "/pinterest"
         },
         "documentation": "/docs"
     }

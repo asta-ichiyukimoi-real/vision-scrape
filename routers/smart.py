@@ -15,7 +15,7 @@ load_dotenv()
 router = APIRouter(prefix="/smart", tags=["Smart Assistant"])
 
 CEREBRAS_API_KEY = os.getenv("CEREBRAS_API_KEY")
-CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama3.1-8b")
+CEREBRAS_MODEL = os.getenv("CEREBRAS_MODEL", "llama-3.3-70b")
 
 if not CEREBRAS_API_KEY:
     raise Exception("CEREBRAS_API_KEY is not set!")
